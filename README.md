@@ -1,9 +1,10 @@
-# 😀 PhantomVault by Thant Zin Moe
-🪞 Phantom Vault: Smart Mirror & Emotion AI
+<img width="1513" height="317" alt="image" src="https://github.com/user-attachments/assets/58a35e1d-f3f4-42cc-b255-775314963c42" />🪞 Phantom Vault: Smart Mirror & Emotion AI
 
 Phantom Vault is an interactive, gamified smart mirror application designed for the Ventuno Q (ARM-based edge device). It merges dual-hand gesture tracking with real-time facial emotion detection, originally adapted from the RosMaster X3 robotics platform.
 
 The system requires users to physically interact with holographic UI elements through a 3-stage "Firewall Breach" while continuously monitoring their biometric emotional state.
+
+[🎥 Click Here to Watch the Video Demonstration](https://drive.google.com/file/d/1KmWH2ZHVsh7MFBSpxz7IrSEvwf_X_2ow/view?usp=sharing)
 
 ✨ Features
 
@@ -94,6 +95,3 @@ TOO FAR: Distance gating ensures the PyTorch model only classifies faces when th
 👨‍💻 Credits
 
 Developed and optimized by Thant Zin Moe (IT Lecturer & Researcher, Swinburne Vietnam) for the Swinburne Innovation Lab.
-
-
-
