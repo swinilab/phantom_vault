@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phantom Vault - Emotion AI</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100vw; height: 100vh;
+            overflow: hidden; background-color: #050505;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        #video-bg {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            object-fit: cover; z-index: 1; opacity: 0.85; filter: grayscale(20%) contrast(120%);
+        }
+        #ui-canvas {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 2; pointer-events: none;
+        }
+        #emotion-hud {
+            position: absolute; top: 40px; left: 40px; z-index: 3;
+            color: #00ffcc; background: rgba(0, 20, 20, 0.8);
+            padding: 20px 30px; border: 2px solid #00ffcc; border-radius: 8px;
+            font-size: 28px; font-weight: bold; text-transform: uppercase; letter-spacing: 3px;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.4); transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+
+    <img id="video-bg" src="" alt="Awaiting Phantom Vault Connection..." />
+    <canvas id="ui-canvas"></canvas>
+    
+    <div id="emotion-hud">
+        STATUS: <span id="emotion-value">SCANNING...</span>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('ui-canvas');
+        const ctx = canvas.getContext('2d');
+        const emotionHud = document.getElementById('emotion-hud');
+        const emotionValue = document.getElementById('emotion-value');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // FIXED: Explicitly connecting to localhost for direct Ventuno Q execution
+        const ws = new WebSocket('ws://localhost:8765');
+
+        ws.onopen = () => console.log("Connected to Phantom Vault");
+        
+        ws.onmessage = function(event) {
+            const payload = JSON.parse(event.data);
+            
+            if (payload.frame) {
+                document.getElementById('video-bg').src = "data:image/jpeg;base64," + payload.frame;
+            }
+
+            if (payload.emotion) {
+                emotionValue.innerText = payload.emotion;
+                
+                if (payload.emotion === "Happy") {
+                    emotionHud.style.color = "#00ff00";
+                    emotionHud.style.borderColor = "#00ff00";
+                    emotionHud.style.boxShadow = "0 0 30px rgba(0, 255, 0, 0.6)";
+                } else if (payload.emotion === "Sad" || payload.emotion === "Angry" || payload.emotion === "Fear") {
+                    emotionHud.style.color = "#ff0033";
+                    emotionHud.style.borderColor = "#ff0033";
+                    emotionHud.style.boxShadow = "0 0 30px rgba(255, 0, 51, 0.6)";
+                } else {
+                    emotionHud.style.color = "#00ffcc";
+                    emotionHud.style.borderColor = "#00ffcc";
+                    emotionHud.style.boxShadow = "0 0 20px rgba(0, 255, 204, 0.4)";
+                }
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (payload.cursors && payload.cursors.length > 0) {
+                payload.cursors.forEach(cursor => {
+                    const screenX = cursor.x * canvas.width;
+                    const screenY = cursor.y * canvas.height;
+                    
+                    ctx.beginPath();
+                    ctx.arc(screenX, screenY, cursor.is_grabbing ? 12 : 20, 0, 2 * Math.PI);
+                    ctx.fillStyle = cursor.is_grabbing ? "rgba(255, 0, 51, 0.9)" : "rgba(0, 255, 204, 0.6)";
+                    ctx.shadowBlur = 25;
+                    ctx.shadowColor = cursor.is_grabbing ? "#ff0033" : "#00ffcc";
+                    ctx.fill();
+                    ctx.closePath();
+                    
+                    ctx.beginPath();
+                    ctx.arc(screenX, screenY, 40, 0, 2 * Math.PI);
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.closePath();
+                });
+            }
+        };
+        
+        ws.onerror = (error) => console.log("WebSocket Error: ", error);
+        ws.onclose = () => console.log("Disconnected.");
+    </script>
+</body>
+</html>

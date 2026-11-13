@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3-Stage Firewall Breach with Emotion AI</title>
+    <style>
+        body { 
+            background-color: #050505; color: #fff; font-family: monospace; 
+            margin: 0; overflow: hidden; 
+        }
+        #ui-container { 
+            position: relative; width: 100vw; height: 100vh; overflow: hidden;
+        }
+        #video-feed { 
+            position: absolute; width: 100vw; height: 100vh; object-fit: cover; z-index: 1; 
+            transform: translateZ(0);
+        }
+        #canvas-overlay { position: absolute; top: 0; left: 0; z-index: 10; pointer-events: none; }
+        
+        /* EMOTION HUD */
+        #emotion-hud {
+            position: absolute; top: 30px; left: 30px; z-index: 40;
+            color: #00ffcc; background: rgba(0, 20, 20, 0.8);
+            padding: 15px 25px; border: 2px solid #00ffcc; border-radius: 8px;
+            font-size: 24px; font-weight: bold; text-transform: uppercase; letter-spacing: 3px;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.4); transition: all 0.3s ease;
+        }
+
+        /* PHASE 1: Grid */
+        #grid {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+            justify-items: center; align-items: center; z-index: 20; padding: 10%; box-sizing: border-box;
+            transition: opacity 0.5s;
+        }
+        .dot {
+            width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 50%;
+            transition: 0.2s; box-shadow: 0 0 10px rgba(0,0,0,0.8); border: 2px solid #555;
+        }
+        .dot.active { background: #00ffcc; box-shadow: 0 0 25px #00ffcc; transform: scale(1.5); border-color: #fff; }
+        
+        /* PHASE 2: Two Keys */
+        .key-module {
+            position: absolute; width: 80px; height: 80px; top: 45%;
+            z-index: 25; display: none; opacity: 0; transition: opacity 0.5s;
+            background: rgba(0, 255, 204, 0.2); border: 2px solid #00ffcc; border-radius: 50%;
+            box-shadow: 0 0 20px rgba(0,255,204,0.5); 
+            display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px;
+        }
+        #key-1 { left: calc(50% - 100px); }
+        #key-2 { left: calc(50% + 20px); }
+        .key-module.grabbed { background: rgba(255, 221, 0, 0.4); border-color: #ffdd00; box-shadow: 0 0 30px #ffdd00; }
+        
+        .drop-zone {
+            position: absolute; width: 15vw; height: 15vw; max-width: 150px; max-height: 150px;
+            border: 4px dashed #ff4444; border-radius: 20px; background: rgba(255,68,68,0.1);
+            display: none; align-items: center; justify-content: center; text-align: center;
+            font-weight: bold; color: #ff4444; font-size: 20px; z-index: 15;
+        }
+        #zone-left { top: 5%; left: 5%; } 
+        #zone-right { bottom: 5%; right: 5%; } 
+        .drop-zone.active { border-color: #00ffcc; color: #00ffcc; background: rgba(0,255,204,0.1); }
+
+        /* PHASE 3: Unstable Core */
+        #core-stage {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 20;
+            display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 1s;
+        }
+        #safe-zone {
+            position: absolute; width: 250px; height: 250px; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); border: 6px dashed #00ffcc; border-radius: 50%;
+            box-shadow: 0 0 40px rgba(0,255,204,0.3) inset;
+        }
+        #unstable-core {
+            position: absolute; width: 600px; height: 600px; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); border-radius: 50%;
+            background: radial-gradient(circle, #ff4444, #550000);
+            box-shadow: 0 0 80px #ff0000; opacity: 0.8;
+            transition: width 0.1s, height 0.1s;
+        }
+        #core-progress-bg {
+            position: absolute; bottom: 8%; width: 50%; max-width: 600px; height: 30px; border: 3px solid #00ffcc;
+            border-radius: 15px; left: 50%; transform: translateX(-50%); overflow: hidden;
+        }
+        #core-progress-fill { width: 0%; height: 100%; background: #00ffcc; transition: width 0.1s; }
+
+        /* PHASE 4: Success */
+        #breach-alert {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 60px; font-weight: bold; color: #00ffcc; text-shadow: 0 0 40px #00ffcc;
+            display: none; z-index: 40; white-space: nowrap; text-align: center;
+        }
+        
+        /* Cursors */
+        .cursor {
+            position: absolute; width: 20px; height: 20px; background: #fff; border-radius: 50%;
+            transform: translate(-50%, -50%); z-index: 30; box-shadow: 0 0 30px #fff;
+            pointer-events: none; display: none; transition: background 0.2s;
+        }
+        .cursor.pinching { background: #ffdd00; box-shadow: 0 0 30px #ffdd00; transform: translate(-50%, -50%) scale(0.6); }
+        
+        #status { 
+            position: absolute; bottom: 3%; left: 50%; transform: translateX(-50%);
+            font-size: 32px; font-weight: bold; letter-spacing: 4px; z-index: 30; 
+            background: rgba(0,0,0,0.6); padding: 10px 30px; border-radius: 20px; white-space: nowrap;
+        }
+        .unlocked { color: #00ffcc; text-shadow: 0 0 20px #00ffcc; }
+        .warning { color: #ff4444; text-shadow: 0 0 20px #ff4444; }
+    </style>
+</head>
+<body>
+    <div id="ui-container">
+        <img id="video-feed" src="" alt="Camera Feed">
+        <canvas id="canvas-overlay"></canvas>
+        
+        <div id="emotion-hud">
+            EMOTION: <span id="emotion-value">NO FACE</span>
+        </div>
+        
+        <div id="grid">
+            <div class="dot" id="dot-1" data-val="1"></div><div class="dot" id="dot-2" data-val="2"></div><div class="dot" id="dot-3" data-val="3"></div>
+            <div class="dot" id="dot-4" data-val="4"></div><div class="dot" id="dot-5" data-val="5"></div><div class="dot" id="dot-6" data-val="6"></div>
+            <div class="dot" id="dot-7" data-val="7"></div><div class="dot" id="dot-8" data-val="8"></div><div class="dot" id="dot-9" data-val="9"></div>
+        </div>
+
+        <div id="zone-left" class="drop-zone">OVERRIDE A</div>
+        <div id="zone-right" class="drop-zone">OVERRIDE B</div>
+        <div id="key-1" class="key-module" style="display:none;">KEY 1</div>
+        <div id="key-2" class="key-module" style="display:none;">KEY 2</div>
+
+        <div id="core-stage">
+            <div id="safe-zone"></div>
+            <div id="unstable-core"></div>
+            <div id="core-progress-bg"><div id="core-progress-fill"></div></div>
+        </div>
+
+        <div id="breach-alert">SYSTEM COMPROMISED<br><span style="font-size:30px; color:#fff;">PAYLOAD SECURED</span></div>
+
+        <div id="cursor-0" class="cursor"></div>
+        <div id="cursor-1" class="cursor"></div>
+        <div id="status">STAGE 1: PINCH TO DRAW PATTERN</div>
+    </div>
+
+    <script>
+        const videoFeed = document.getElementById('video-feed');
+        const statusText = document.getElementById('status');
+        const canvas = document.getElementById('canvas-overlay');
+        const ctx = canvas.getContext('2d');
+        const grid = document.getElementById('grid');
+        const dots = document.querySelectorAll('.dot');
+        const emotionHud = document.getElementById('emotion-hud');
+        const emotionValue = document.getElementById('emotion-value');
+        
+        const cursorsDOM = [document.getElementById('cursor-0'), document.getElementById('cursor-1')];
+        const keys = [
+            { el: document.getElementById('key-1'), grabbedBy: null, offsetX: 0, offsetY: 0 },
+            { el: document.getElementById('key-2'), grabbedBy: null, offsetX: 0, offsetY: 0 }
+        ];
+        const zoneLeft = document.getElementById('zone-left');
+        const zoneRight = document.getElementById('zone-right');
+        
+        const coreStage = document.getElementById('core-stage');
+        const unstableCore = document.getElementById('unstable-core');
+        const coreFill = document.getElementById('core-progress-fill');
+        const breachAlert = document.getElementById('breach-alert');
+        
+        let phase = 1; 
+        let isEvaluating = false; 
+        let currentPattern = [];
+        const targetPattern = ['1', '2', '3', '6', '9']; 
+        
+        let stabilizeFrames = 0;
+        const requiredFrames = 90; 
+        const targetSize = 250; 
+        const tolerance = 40; 
+        
+        const dotCoords = {};
+        let lastObjectURL = null;
+
+        function resizeUI() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            getDotCenters();
+        }
+        window.addEventListener('resize', resizeUI);
+
+        function getDotCenters() {
+            dots.forEach(dot => {
+                const rect = dot.getBoundingClientRect();
+                dotCoords[dot.dataset.val] = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+            });
+        }
+
+        function checkCollision(elem1, elem2) {
+            const rect1 = elem1.getBoundingClientRect();
+            const rect2 = elem2.getBoundingClientRect();
+            if (rect1.width === 0 || rect2.width === 0) return false;
+            return !(rect1.right < rect2.left || rect1.left > rect2.right || rect1.bottom < rect2.top || rect1.top > rect2.bottom);
+        }
+
+        const ws = new WebSocket('ws://localhost:8765');
+        ws.binaryType = 'arraybuffer';
+        ws.onopen = () => resizeUI();
+
+        ws.onmessage = function(event) {
+            const buffer = event.data;
+            const view = new DataView(buffer);
+            const metadataLen = view.getUint32(0, false);
+            
+            const decoder = new TextDecoder('utf-8');
+            const metadataJson = decoder.decode(buffer.slice(4, 4 + metadataLen));
+            const data = JSON.parse(metadataJson);
+            
+            const jpegBytes = buffer.slice(4 + metadataLen);
+            const blob = new Blob([jpegBytes], { type: 'image/jpeg' });
+            
+            if (lastObjectURL) URL.revokeObjectURL(lastObjectURL);
+            lastObjectURL = URL.createObjectURL(blob);
+            videoFeed.src = lastObjectURL;
+
+            if (Object.keys(dotCoords).length === 0) getDotCenters();
+
+            // Handle Emotion Updates
+            if (data.emotion) {
+                emotionValue.innerText = data.emotion;
+                if (data.emotion === "Happy") {
+                    emotionHud.style.color = "#00ff00";
+                    emotionHud.style.borderColor = "#00ff00";
+                    emotionHud.style.boxShadow = "0 0 30px rgba(0, 255, 0, 0.6)";
+                } else if (data.emotion === "Sad" || data.emotion === "Angry" || data.emotion === "Fear") {
+                    emotionHud.style.color = "#ff0033";
+                    emotionHud.style.borderColor = "#ff0033";
+                    emotionHud.style.boxShadow = "0 0 30px rgba(255, 0, 51, 0.6)";
+                } else if (data.emotion === "NO FACE" || data.emotion === "TOO FAR") {
+                    emotionHud.style.color = "#888888";
+                    emotionHud.style.borderColor = "#444444";
+                    emotionHud.style.boxShadow = "none";
+                } else {
+                    emotionHud.style.color = "#00ffcc";
+                    emotionHud.style.borderColor = "#00ffcc";
+                    emotionHud.style.boxShadow = "0 0 20px rgba(0, 255, 204, 0.4)";
+                }
+            }
+
+            cursorsDOM.forEach(c => c.style.display = 'none');
+
+            if (data.cursors && data.cursors.length > 0) {
+                const activeCursors = [];
+                
+                const imgW = 640;
+                const imgH = 480;
+                const winW = window.innerWidth;
+                const winH = window.innerHeight;
+                
+                // Corrected math matching object-fit: cover scaling
+                const scale = Math.max(winW / imgW, winH / imgH);
+                const renderW = imgW * scale;
+                const renderH = imgH * scale;
+                const offsetX = (winW - renderW) / 2;
+                const offsetY = (winH - renderH) / 2;
+                
+                data.cursors.forEach((cData, i) => {
+                    if (i > 1) return; 
+                    if (phase === 1 && i > 0) return; 
+                    
+                    const cx = (cData.x * renderW) + offsetX;
+                    const cy = (cData.y * renderH) + offsetY;
+                    
+                    cursorsDOM[i].style.display = 'block';
+                    cursorsDOM[i].style.left = cx + 'px';
+                    cursorsDOM[i].style.top = cy + 'px';
+                    
+                    if (cData.is_grabbing) cursorsDOM[i].classList.add('pinching');
+                    else cursorsDOM[i].classList.remove('pinching');
+                    
+                    activeCursors.push({ x: cx, y: cy, is_grabbing: cData.is_grabbing, id: i });
+                });
+
+                // --- STAGE 1: PATTERN ---
+                if (phase === 1 && !isEvaluating) {
+                    if (activeCursors.length > 0) {
+                        const primaryHand = activeCursors[0];
+                        if (primaryHand.is_grabbing) {
+                            for (const [val, coords] of Object.entries(dotCoords)) {
+                                const dist = Math.hypot(primaryHand.x - coords.x, primaryHand.y - coords.y);
+                                if (dist < 60 && !currentPattern.includes(val)) {
+                                    currentPattern.push(val);
+                                    document.getElementById('dot-' + val).classList.add('active');
+                                    drawPatternLines();
+                                }
+                            }
+                        } else if (currentPattern.length > 0) {
+                            evaluatePattern();
+                        }
+                    }
+                } 
+                
+                // --- STAGE 2: KEYS ---
+                else if (phase === 2) {
+                    keys.forEach((keyObj, keyIndex) => {
+                        const kRect = keyObj.el.getBoundingClientRect();
+                        
+                        activeCursors.forEach(cursor => {
+                            const isHovering = (cursor.x > kRect.left && cursor.x < kRect.right && cursor.y > kRect.top && cursor.y < kRect.bottom);
+                            if (cursor.is_grabbing) {
+                                if (isHovering && keyObj.grabbedBy === null) {
+                                    const otherKey = keys[keyIndex === 0 ? 1 : 0];
+                                    if (otherKey.grabbedBy !== cursor.id) {
+                                        keyObj.grabbedBy = cursor.id;
+                                        keyObj.el.classList.add('grabbed');
+                                        keyObj.offsetX = cursor.x - kRect.left;
+                                        keyObj.offsetY = cursor.y - kRect.top;
+                                    }
+                                }
+                            } else if (keyObj.grabbedBy === cursor.id) {
+                                keyObj.grabbedBy = null;
+                                keyObj.el.classList.remove('grabbed');
+                            }
+                        });
+
+                        if (keyObj.grabbedBy !== null && !activeCursors.find(c => c.id === keyObj.grabbedBy)) {
+                            keyObj.grabbedBy = null;
+                            keyObj.el.classList.remove('grabbed');
+                        }
+
+                        if (keyObj.grabbedBy !== null) {
+                            const grabber = activeCursors.find(c => c.id === keyObj.grabbedBy);
+                            if (grabber) {
+                                keyObj.el.style.left = (grabber.x - keyObj.offsetX) + 'px';
+                                keyObj.el.style.top = (grabber.y - keyObj.offsetY) + 'px';
+                            }
+                        }
+                    });
+
+                    const key1Left = checkCollision(keys[0].el, zoneLeft);
+                    const key1Right = checkCollision(keys[0].el, zoneRight);
+                    const key2Left = checkCollision(keys[1].el, zoneLeft);
+                    const key2Right = checkCollision(keys[1].el, zoneRight);
+
+                    if (key1Left || key2Left) zoneLeft.classList.add('active'); else zoneLeft.classList.remove('active');
+                    if (key1Right || key2Right) zoneRight.classList.add('active'); else zoneRight.classList.remove('active');
+
+                    if ((key1Left && key2Right) || (key1Right && key2Left)) {
+                        phase = 3;
+                        keys.forEach(k => k.el.style.display = 'none');
+                        zoneLeft.style.display = 'none';
+                        zoneRight.style.display = 'none';
+                        
+                        coreStage.style.display = 'flex';
+                        setTimeout(() => { coreStage.style.opacity = '1'; }, 50);
+                        
+                        statusText.innerText = 'STAGE 3: COMPRESS THE CORE';
+                        statusText.className = 'warning';
+                    }
+                }
+
+                // --- STAGE 3: UNSTABLE CORE ---
+                else if (phase === 3) {
+                    if (activeCursors.length === 2 && activeCursors[0].is_grabbing && activeCursors[1].is_grabbing) {
+                        let dist = Math.hypot(activeCursors[0].x - activeCursors[1].x, activeCursors[0].y - activeCursors[1].y);
+                        
+                        let newSize = Math.max(150, Math.min(650, dist));
+                        
+                        let shakeX = (Math.random() * 14 - 7) + 'px';
+                        let shakeY = (Math.random() * 14 - 7) + 'px';
+                        unstableCore.style.transform = `translate(-50%, -50%) translate(${shakeX}, ${shakeY})`;
+                        
+                        unstableCore.style.width = newSize + 'px';
+                        unstableCore.style.height = newSize + 'px';
+
+                        if (Math.abs(newSize - targetSize) <= tolerance) {
+                            stabilizeFrames++;
+                            unstableCore.style.boxShadow = '0 0 80px #ffdd00';
+                            unstableCore.style.background = 'radial-gradient(circle, #ffdd00, #aa8800)';
+                        } else {
+                            stabilizeFrames = Math.max(0, stabilizeFrames - 2); 
+                            unstableCore.style.boxShadow = '0 0 80px #ff0000';
+                            unstableCore.style.background = 'radial-gradient(circle, #ff4444, #550000)';
+                        }
+                    } else {
+                        stabilizeFrames = 0;
+                        unstableCore.style.width = '600px';
+                        unstableCore.style.height = '600px';
+                        unstableCore.style.boxShadow = '0 0 80px #ff0000';
+                        unstableCore.style.background = 'radial-gradient(circle, #ff4444, #550000)';
+                    }
+
+                    let progressPct = (stabilizeFrames / requiredFrames) * 100;
+                    coreFill.style.width = progressPct + '%';
+
+                    if (stabilizeFrames >= requiredFrames) {
+                        phase = 4;
+                        coreStage.style.display = 'none';
+                        breachAlert.style.display = 'block';
+                        statusText.style.display = 'none';
+
+                        // FULLY FIXED CLEAN RESET
+                        setTimeout(() => {
+                            phase = 1;                 
+                            isEvaluating = false; 
+                            currentPattern = [];
+                            stabilizeFrames = 0;
+                            
+                            breachAlert.style.display = 'none';
+                            coreStage.style.display = 'none';
+                            grid.style.display = 'grid';
+                            setTimeout(() => { grid.style.opacity = '1'; }, 50);
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            dots.forEach(d => { d.classList.remove('active'); d.style.background = 'rgba(255,255,255,0.2)'; });
+                            
+                            keys.forEach(k => { 
+                                k.grabbedBy = null; 
+                                k.el.classList.remove('grabbed'); 
+                                k.el.style.display = 'none';
+                                k.el.style.left = ''; 
+                                k.el.style.top = ''; 
+                            });
+                            
+                            zoneLeft.style.display = 'none';
+                            zoneRight.style.display = 'none';
+                            zoneLeft.classList.remove('active');
+                            zoneRight.classList.remove('active');
+                            
+                            unstableCore.style.width = '600px';
+                            unstableCore.style.height = '600px';
+                            unstableCore.style.boxShadow = '0 0 80px #ff0000';
+                            unstableCore.style.background = 'radial-gradient(circle, #ff4444, #550000)';
+                            coreFill.style.width = '0%';
+                            
+                            statusText.innerText = 'STAGE 1: PINCH TO DRAW PATTERN';
+                            statusText.className = '';
+                            statusText.style.color = '#fff';
+                            statusText.style.display = 'block';
+                        }, 5000);
+                    }
+                }
+
+            } else {
+                if (phase === 1 && currentPattern.length > 0 && !isEvaluating) evaluatePattern();
+                else if (phase === 2) keys.forEach(k => { k.grabbedBy = null; k.el.classList.remove('grabbed'); });
+            }
+        };
+
+        function drawPatternLines() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (currentPattern.length < 2) return;
+            ctx.beginPath();
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 10;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            const startNode = dotCoords[currentPattern[0]];
+            ctx.moveTo(startNode.x, startNode.y);
+            for (let i = 1; i < currentPattern.length; i++) {
+                ctx.lineTo(dotCoords[currentPattern[i]].x, dotCoords[currentPattern[i]].y);
+            }
+            ctx.stroke();
+        }
+
+        function evaluatePattern() {
+            if (isEvaluating) return;
+            isEvaluating = true;
+            
+            const match = currentPattern.length === targetPattern.length && 
+                          currentPattern.every((val, index) => val === targetPattern[index]);
+            
+            if (match) {
+                phase = 2;
+                isEvaluating = false; 
+                statusText.innerText = 'STAGE 2: SEPARATE OVERRIDE KEYS';
+                statusText.className = 'unlocked';
+                grid.style.opacity = '0'; 
+                ctx.clearRect(0, 0, canvas.width, canvas.height); 
+                
+                setTimeout(() => {
+                    grid.style.display = 'none';
+                    zoneLeft.style.display = 'flex';
+                    zoneRight.style.display = 'flex';
+                    keys.forEach(k => {
+                        k.el.style.display = 'flex';
+                        setTimeout(() => { k.el.style.opacity = '1'; }, 50);
+                    });
+                }, 500);
+            } else {
+                statusText.innerText = 'PATTERN FAILED';
+                statusText.style.color = '#ff4444';
+                ctx.strokeStyle = '#ff4444';
+                ctx.stroke();
+                dots.forEach(d => { if(d.classList.contains('active')) d.style.background = '#ff4444'; });
+
+                setTimeout(() => {
+                    currentPattern = [];
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    dots.forEach(d => { d.classList.remove('active'); d.style.background = ''; });
+                    statusText.innerText = 'STAGE 1: PINCH TO DRAW PATTERN';
+                    statusText.style.color = '#fff';
+                    isEvaluating = false;
+                }, 1200);
+            }
+        }
+    </script>
+</body>
+</html>
